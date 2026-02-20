@@ -5,6 +5,7 @@
 
 import SwiftUI
 import AVFoundation
+import OtosakuTTS_iOS
 
 struct ContentView: View {
     @StateObject private var viewModel = TTSViewModel()
@@ -24,6 +25,25 @@ struct ContentView: View {
                                 .stroke(Color.secondary.opacity(0.2), lineWidth: 1)
                         )
                         .padding(.horizontal, 4)
+                }
+                .padding(.horizontal)
+
+                VStack(alignment: .leading, spacing: 12) {
+                    Text("Voice")
+                        .font(.headline)
+
+                    Picker("Voice", selection: $viewModel.selectedSpeaker) {
+                        ForEach(FastPitchSpeaker.allCases) { speaker in
+                            Text(speaker.displayName).tag(speaker)
+                        }
+                    }
+                    .pickerStyle(.menu)
+
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Pace: \(viewModel.pace, specifier: "%.2f")x")
+                            .font(.headline)
+                        Slider(value: $viewModel.pace, in: 0.5...2.0, step: 0.05)
+                    }
                 }
                 .padding(.horizontal)
                 
@@ -50,7 +70,11 @@ struct ContentView: View {
                 
                 Button(action: {
                     Task {
-                        await viewModel.synthesizeSpeech(from: inputText)
+                        await viewModel.synthesizeSpeech(
+                            from: inputText,
+                            speaker: viewModel.selectedSpeaker,
+                            pace: viewModel.pace
+                        )
                     }
                 }) {
                     Label("Speak", systemImage: "speaker.wave.3.fill")
