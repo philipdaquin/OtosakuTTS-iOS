@@ -1,4 +1,4 @@
-# OtosakuTTS-iOS
+# Multispeaker Fastpitch HifiVGan Engine
 
 A Swift library for on-device text-to-speech synthesis using FastPitch and HiFiGAN models. Generate natural-sounding speech directly on iOS devices without any network connection or external API dependencies.
 
@@ -24,7 +24,7 @@ Add the following to your `Package.swift` file:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/Otosaku/OtosakuTTS-iOS.git", from: "1.0.0")
+    .package(url: "https://github.com/philipdaquin/OtosakuTTS-iOS.git", from: "1.0.0")
 ]
 ```
 
@@ -39,7 +39,7 @@ Or in Xcode:
 
 Download the required model archive from:
 ```
-https://firebasestorage.googleapis.com/v0/b/my-project-1494707780868.firebasestorage.app/o/fastpitch_hifigan.zip?alt=media&token=d239c2de-fe93-460e-a1e4-044923a1be58
+https://firebasestorage.googleapis.com/v0/b/ocre-82770.firebasestorage.app/o/TTSModels.zip?alt=media&token=f9d7c1ca-b38d-48c7-84e3-34be0c5a65a5
 ```
 
 The archive contains:
