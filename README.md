@@ -39,7 +39,7 @@ Or in Xcode:
 
 Download the required model archive from:
 ```
-https://firebasestorage.googleapis.com/v0/b/ocre-82770.firebasestorage.app/o/TTSModels.zip?alt=media&token=f9d7c1ca-b38d-48c7-84e3-34be0c5a65a5
+https://firebasestorage.googleapis.com/v0/b/my-project-1494707780868.firebasestorage.app/o/fastpitch_hifigan.zip?alt=media&token=d239c2de-fe93-460e-a1e4-044923a1be58
 ```
 
 The archive contains:
