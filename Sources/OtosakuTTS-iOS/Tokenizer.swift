@@ -198,6 +198,17 @@ public final class Tokenizer {
     private func normalizeNumericExpressions(_ text: String) -> String {
         var result = text
 
+        result = replaceMatches(
+            in: result,
+            pattern: #"(^|\n)\s*([0-9]{1,3})\.\s+"#,
+            options: [.anchorsMatchLines]
+        ) { groups in
+            guard groups.count >= 2 else { return nil }
+            let prefix = groups[0]
+            let numberWord = expandNumberToken(groups[1])
+            return "\(prefix)number \(numberWord), "
+        }
+
         result = replaceMatches(in: result, pattern: #"\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)"#) { groups in
             guard let amount = groups.first else { return nil }
             return speakCurrency(amount)

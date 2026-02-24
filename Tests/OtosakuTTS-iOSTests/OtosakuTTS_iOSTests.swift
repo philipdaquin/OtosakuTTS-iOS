@@ -10,7 +10,7 @@ private func makeTokenizer() throws -> Tokenizer {
     let tokens = [
         " ", ",", ".", "!", "?", "B", "K", "T", "W", "N", "F", "R", "S", "Z", "L",
         "IY1", "IH1", "IY0", "AH0", "OW1", "EH1", "ER1", "ER0", "AE1", "AO1", "AY1",
-        "D", "M", "Y", "HH", "AA1", "AH1", "P", "OY1", "V", "<oov>"
+        "D", "M", "Y", "HH", "AA1", "AH1", "P", "OY1", "V", "UW1", "<oov>"
     ].joined(separator: "\n")
     try tokens.write(to: root.appendingPathComponent("tokens.txt"), atomically: true, encoding: .utf8)
 
@@ -31,7 +31,9 @@ private func makeTokenizer() throws -> Tokenizer {
         "fourteen": [["F", "AO1", "R", "T", "IY1", "N"]],
         "dollars": [["D", "AA1", "L", "ER0", "Z"]],
         "cents": [["S", "EH1", "N", "T", "S"]],
-        "fifty": [["F", "IH1", "F", "T", "IY0"]]
+        "fifty": [["F", "IH1", "F", "T", "IY0"]],
+        "number": [["N", "AH1", "M", "B", "ER0"]],
+        "two": [["T", "UW1"]]
     ]
     let data = try JSONSerialization.data(withJSONObject: dict, options: [])
     try data.write(to: root.appendingPathComponent("cmudict.json"))
@@ -71,4 +73,11 @@ private func makeTokenizer() throws -> Tokenizer {
     let tokenizer = try makeTokenizer()
     #expect(tokenizer.encode("$21.50") == tokenizer.encode("twenty one dollars fifty cents"))
     #expect(tokenizer.encode("XIV") == tokenizer.encode("fourteen"))
+}
+
+@Test func expandsListNumberingAtLineStarts() throws {
+    let tokenizer = try makeTokenizer()
+    let listed = tokenizer.encode("1. hello\n2. world")
+    let spoken = tokenizer.encode("number one, hello number two, world")
+    #expect(listed == spoken)
 }
