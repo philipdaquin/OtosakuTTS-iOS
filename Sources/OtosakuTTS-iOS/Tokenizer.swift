@@ -20,7 +20,7 @@ public final class Tokenizer {
         var ids: [Int] = []
         let cleaned = normalizeText(text)
 
-        let pattern = #"[A-Za-z]+(?:'[A-Za-z]+)?|[0-9]+(?:\.[0-9]+)?|[^A-Za-z0-9\s]|\s+"#
+        let pattern = #"[A-Za-z]+(?:'[A-Za-z]+)?|[0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?(?:st|nd|rd|th)?|[0-9]+(?:\.[0-9]+)?(?:st|nd|rd|th)?|[^A-Za-z0-9\s]|\s+"#
         let regex = try! NSRegularExpression(pattern: pattern)
         let matches = regex.matches(in: cleaned, range: NSRange(cleaned.startIndex..., in: cleaned))
 
@@ -41,7 +41,7 @@ public final class Tokenizer {
                 continue
             }
 
-            if token.range(of: #"^[0-9]+(?:\.[0-9]+)?$"#, options: .regularExpression) != nil {
+            if token.range(of: #"^[0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?(?:st|nd|rd|th)?$|^[0-9]+(?:\.[0-9]+)?(?:st|nd|rd|th)?$"#, options: .regularExpression) != nil {
                 let spoken = expandNumberToken(token)
                 appendWordLikeToken(spoken, previousWord: previousWord, nextWord: nil, to: &ids)
                 previousWord = spoken.lowercased()
@@ -131,6 +131,17 @@ public final class Tokenizer {
         let cleanedWord = lowered.trimmingCharacters(in: CharacterSet(charactersIn: "'"))
         guard !cleanedWord.isEmpty else { return }
 
+        if shouldTreatAsRomanNumeral(rawToken), let romanValue = romanNumeralValue(rawToken) {
+            let spoken = speakWholeNumber(String(romanValue)) ?? cleanedWord
+            let splitWords = spoken.split(separator: " ").map(String.init)
+            for (i, item) in splitWords.enumerated() {
+                let next = i + 1 < splitWords.count ? splitWords[i + 1] : nextWord
+                appendWordLikeToken(item, previousWord: i == 0 ? previousWord : splitWords[i - 1], nextWord: next, to: &arr)
+                if i + 1 < splitWords.count { append(" ", to: &arr) }
+            }
+            return
+        }
+
         if shouldSpellAsAcronym(rawToken) {
             appendAcronym(rawToken, to: &arr)
             return
@@ -161,7 +172,7 @@ public final class Tokenizer {
     }
 
     private func normalizeText(_ text: String) -> String {
-        var normalized = text
+        var normalized = normalizeNumericExpressions(text)
             .replacingOccurrences(of: "—", with: " , ")
             .replacingOccurrences(of: "–", with: " , ")
             .replacingOccurrences(of: "…", with: " ... ")
@@ -182,6 +193,27 @@ public final class Tokenizer {
         normalized = normalized.replacingOccurrences(of: #"\s+"#, with: " ", options: .regularExpression)
         normalized = normalized.trimmingCharacters(in: .whitespacesAndNewlines)
         return normalized
+    }
+
+    private func normalizeNumericExpressions(_ text: String) -> String {
+        var result = text
+
+        result = replaceMatches(in: result, pattern: #"\$([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]{1,2})?|[0-9]+(?:\.[0-9]{1,2})?)"#) { groups in
+            guard let amount = groups.first else { return nil }
+            return speakCurrency(amount)
+        }
+
+        result = replaceMatches(in: result, pattern: #"([0-9]{1,3}(?:,[0-9]{3})*(?:\.[0-9]+)?|[0-9]+(?:\.[0-9]+)?)%"#) { groups in
+            guard let number = groups.first else { return nil }
+            return "\(expandNumberToken(number)) percent"
+        }
+
+        result = replaceMatches(in: result, pattern: #"\b([0-9]{1,3}(?:,[0-9]{3})*|[0-9]+)(st|nd|rd|th)\b"#, options: [.caseInsensitive]) { groups in
+            guard groups.count >= 2 else { return nil }
+            return speakOrdinalNumber(groups[0] + groups[1])
+        }
+
+        return result
     }
 
     private func extractWords(from text: String) -> [String] {
@@ -211,6 +243,13 @@ public final class Tokenizer {
         return false
     }
 
+    private func shouldTreatAsRomanNumeral(_ token: String) -> Bool {
+        if token.count < 2 { return false }
+        guard token == token.uppercased() else { return false }
+        let romanLetters = CharacterSet(charactersIn: "IVXLCDM")
+        return token.unicodeScalars.allSatisfy { romanLetters.contains($0) }
+    }
+
     private func appendAcronym(_ token: String, to arr: inout [Int]) {
         let letters = token.lowercased().filter { $0.isLetter }
         for (idx, ch) in letters.enumerated() {
@@ -232,10 +271,15 @@ public final class Tokenizer {
     }
 
     private func expandNumberToken(_ token: String) -> String {
-        guard token.contains(".") else {
-            return speakWholeNumber(token) ?? token
+        let cleaned = token.replacingOccurrences(of: ",", with: "")
+        if cleaned.range(of: #"^[0-9]+(st|nd|rd|th)$"#, options: [.regularExpression, .caseInsensitive]) != nil,
+           let ordinal = speakOrdinalNumber(cleaned) {
+            return ordinal
         }
-        let parts = token.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        guard cleaned.contains(".") else {
+            return speakWholeNumber(cleaned) ?? cleaned
+        }
+        let parts = cleaned.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
         if parts.count != 2 { return token }
         let left = speakWholeNumber(parts[0]) ?? parts[0]
         let right = parts[1].map { String($0) }.compactMap { digitWord($0) }.joined(separator: " ")
@@ -245,6 +289,18 @@ public final class Tokenizer {
     private func speakWholeNumber(_ digits: String) -> String? {
         guard let value = Int(digits), value >= 0 else { return nil }
         if value == 0 { return "zero" }
+        if digits.count == 4, (1000...2099).contains(value) {
+            if (2000...2009).contains(value) {
+                let remainder = value % 100
+                if remainder == 0 { return "two thousand" }
+                return "two thousand \(speakWholeNumber(String(remainder))!)"
+            }
+            let left = value / 100
+            let right = value % 100
+            let head = speakWholeNumber(String(left))!
+            if right == 0 { return "\(head) hundred" }
+            return "\(head) \(speakWholeNumber(String(right))!)"
+        }
         if value < 20 {
             return smallNumberWord(value)
         }
@@ -291,6 +347,131 @@ public final class Tokenizer {
         case "9": return "nine"
         default: return nil
         }
+    }
+
+    private func speakOrdinalNumber(_ digitsWithSuffix: String) -> String? {
+        let cleaned = digitsWithSuffix.replacingOccurrences(of: ",", with: "").lowercased()
+        guard let wholeRange = cleaned.range(of: #"^[0-9]+(st|nd|rd|th)$"#, options: .regularExpression),
+              wholeRange.lowerBound == cleaned.startIndex,
+              wholeRange.upperBound == cleaned.endIndex,
+              let digitRange = cleaned.range(of: #"^[0-9]+"#, options: .regularExpression) else {
+            return nil
+        }
+        let digitPart = String(cleaned[digitRange])
+        guard let value = Int(digitPart), value > 0 else { return nil }
+
+        let special: [Int: String] = [
+            1: "first", 2: "second", 3: "third", 4: "fourth", 5: "fifth",
+            6: "sixth", 7: "seventh", 8: "eighth", 9: "ninth", 10: "tenth",
+            11: "eleventh", 12: "twelfth", 13: "thirteenth", 14: "fourteenth",
+            15: "fifteenth", 16: "sixteenth", 17: "seventeenth", 18: "eighteenth",
+            19: "nineteenth", 20: "twentieth", 30: "thirtieth", 40: "fortieth",
+            50: "fiftieth", 60: "sixtieth", 70: "seventieth", 80: "eightieth",
+            90: "ninetieth", 100: "hundredth", 1000: "thousandth"
+        ]
+        if let direct = special[value] { return direct }
+
+        if value < 100 {
+            let tens = (value / 10) * 10
+            let ones = value % 10
+            guard let tensWord = special[tens], let onesWord = special[ones] else { return nil }
+            let baseTens = tensWord.replacingOccurrences(of: "ieth", with: "y")
+            return "\(baseTens) \(onesWord)"
+        }
+
+        guard let cardinal = speakWholeNumber(digitPart) else { return nil }
+        let words = cardinal.split(separator: " ").map(String.init)
+        guard let last = words.last else { return nil }
+        let ordinalLast = makeOrdinalWord(last)
+        return (words.dropLast() + [ordinalLast]).joined(separator: " ")
+    }
+
+    private func makeOrdinalWord(_ word: String) -> String {
+        switch word {
+        case "one": return "first"
+        case "two": return "second"
+        case "three": return "third"
+        case "five": return "fifth"
+        case "eight": return "eighth"
+        case "nine": return "ninth"
+        case "twelve": return "twelfth"
+        case "twenty": return "twentieth"
+        case "thirty": return "thirtieth"
+        case "forty": return "fortieth"
+        case "fifty": return "fiftieth"
+        case "sixty": return "sixtieth"
+        case "seventy": return "seventieth"
+        case "eighty": return "eightieth"
+        case "ninety": return "ninetieth"
+        default:
+            if word.hasSuffix("y") {
+                return String(word.dropLast()) + "ieth"
+            }
+            return word + "th"
+        }
+    }
+
+    private func speakCurrency(_ amount: String) -> String {
+        let cleaned = amount.replacingOccurrences(of: ",", with: "")
+        let parts = cleaned.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: false).map(String.init)
+        guard let dollars = Int(parts[0]) else { return amount }
+
+        let dollarWord = dollars == 1 ? "dollar" : "dollars"
+        var phrase = "\(speakWholeNumber(String(dollars)) ?? parts[0]) \(dollarWord)"
+        if parts.count == 2, let centsRaw = Int(String(parts[1].prefix(2))), centsRaw > 0 {
+            let centWord = centsRaw == 1 ? "cent" : "cents"
+            phrase += " \(speakWholeNumber(String(centsRaw)) ?? String(centsRaw)) \(centWord)"
+        }
+        return phrase
+    }
+
+    private func romanNumeralValue(_ token: String) -> Int? {
+        let values: [Character: Int] = ["I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000]
+        let upper = token.uppercased()
+        var total = 0
+        var previous = 0
+        for ch in upper.reversed() {
+            guard let value = values[ch] else { return nil }
+            if value < previous {
+                total -= value
+            } else {
+                total += value
+                previous = value
+            }
+        }
+        return total > 0 ? total : nil
+    }
+
+    private func replaceMatches(
+        in text: String,
+        pattern: String,
+        options: NSRegularExpression.Options = [],
+        transform: ([String]) -> String?
+    ) -> String {
+        guard let regex = try? NSRegularExpression(pattern: pattern, options: options) else { return text }
+        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+        guard !matches.isEmpty else { return text }
+
+        var result = ""
+        var current = text.startIndex
+
+        for match in matches {
+            guard let fullRange = Range(match.range, in: text) else { continue }
+            result += text[current..<fullRange.lowerBound]
+            var groups: [String] = []
+            if match.numberOfRanges > 1 {
+                for i in 1..<match.numberOfRanges {
+                    if let range = Range(match.range(at: i), in: text) {
+                        groups.append(String(text[range]))
+                    }
+                }
+            }
+            result += transform(groups) ?? String(text[fullRange])
+            current = fullRange.upperBound
+        }
+
+        result += text[current...]
+        return result
     }
 
     private func guessPhones(for word: String) -> [String] {

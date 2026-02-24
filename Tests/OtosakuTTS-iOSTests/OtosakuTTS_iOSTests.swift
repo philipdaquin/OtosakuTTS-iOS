@@ -9,8 +9,8 @@ private func makeTokenizer() throws -> Tokenizer {
 
     let tokens = [
         " ", ",", ".", "!", "?", "B", "K", "T", "W", "N", "F", "R", "S", "Z", "L",
-        "IY1", "IH1", "AH0", "OW1", "EH1", "ER1", "AE1", "D", "M", "Y", "HH", "AA1",
-        "AH1", "P", "OY1", "V", "ER0", "<oov>"
+        "IY1", "IH1", "IY0", "AH0", "OW1", "EH1", "ER1", "ER0", "AE1", "AO1", "AY1",
+        "D", "M", "Y", "HH", "AA1", "AH1", "P", "OY1", "V", "<oov>"
     ].joined(separator: "\n")
     try tokens.write(to: root.appendingPathComponent("tokens.txt"), atomically: true, encoding: .utf8)
 
@@ -23,7 +23,15 @@ private func makeTokenizer() throws -> Tokenizer {
         "one": [["W", "AH1", "N"]],
         "point": [["P", "OY1", "N", "T"]],
         "five": [["F", "AY1", "V"]],
-        "doctor": [["D", "AA1", "K", "T", "ER0"]]
+        "doctor": [["D", "AA1", "K", "T", "ER0"]],
+        "first": [["F", "ER1", "S", "T"]],
+        "ninety": [["N", "AY1", "N", "T", "IY0"]],
+        "nine": [["N", "AY1", "N"]],
+        "percent": [["P", "ER0", "S", "EH1", "N", "T"]],
+        "fourteen": [["F", "AO1", "R", "T", "IY1", "N"]],
+        "dollars": [["D", "AA1", "L", "ER0", "Z"]],
+        "cents": [["S", "EH1", "N", "T", "S"]],
+        "fifty": [["F", "IH1", "F", "T", "IY0"]]
     ]
     let data = try JSONSerialization.data(withJSONObject: dict, options: [])
     try data.write(to: root.appendingPathComponent("cmudict.json"))
@@ -51,4 +59,16 @@ private func makeTokenizer() throws -> Tokenizer {
     let tokenizer = try makeTokenizer()
     let ids = tokenizer.encode("NASA")
     #expect(!ids.isEmpty)
+}
+
+@Test func expandsOrdinalsAndPercentages() throws {
+    let tokenizer = try makeTokenizer()
+    #expect(tokenizer.encode("21st") == tokenizer.encode("twenty first"))
+    #expect(tokenizer.encode("99%") == tokenizer.encode("ninety nine percent"))
+}
+
+@Test func expandsCurrencyAndRomanNumerals() throws {
+    let tokenizer = try makeTokenizer()
+    #expect(tokenizer.encode("$21.50") == tokenizer.encode("twenty one dollars fifty cents"))
+    #expect(tokenizer.encode("XIV") == tokenizer.encode("fourteen"))
 }
