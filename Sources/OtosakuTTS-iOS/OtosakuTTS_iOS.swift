@@ -7,55 +7,79 @@ import AVFoundation
 
 
 
-
 public enum FastPitchSpeaker: Int, CaseIterable, Identifiable {
-    case coriSamuel     = 92
-    case philBenson     = 6097
-    case johnVanStan    = 9017
-    case mikePelton     = 6670
-    case tonyOliva      = 6671
-    case mariaKasper    = 8051
-    case helenTaylor    = 9136
-    case sylviamb       = 11614
-    case celineMajor    = 11697
-    case likeManyWaters = 12787
+    case emma     = 92      // female
+    case james    = 6097    // male
+    case daniel   = 9017    // male
+    case michael  = 6670    // male
+    case ryan     = 6671    // male
+    case sophia   = 8051    // female
+    case claire   = 9136    // female
+    case olivia   = 11614   // female
+    case celine   = 11697   // female
+    case grace    = 12787   // female
 
     public var id: Int { rawValue }
 
     public var displayName: String {
         switch self {
-        case .coriSamuel:     return "Cori Samuel"
-        case .philBenson:     return "Phil Benson"
-        case .johnVanStan:    return "John Van Stan"
-        case .mikePelton:     return "Mike Pelton"
-        case .tonyOliva:      return "Tony Oliva"
-        case .mariaKasper:    return "Maria Kasper"
-        case .helenTaylor:    return "Helen Taylor"
-        case .sylviamb:       return "Sylviamb"
-        case .celineMajor:    return "Celine Major"
-        case .likeManyWaters: return "LikeManyWaters"
+        case .emma:    return "Emma"
+        case .james:   return "James"
+        case .daniel:  return "Daniel"
+        case .michael: return "Michael"
+        case .ryan:    return "Ryan"
+        case .sophia:  return "Sophia"
+        case .claire:  return "Claire"
+        case .olivia:  return "Olivia"
+        case .celine:  return "Celine"
+        case .grace:   return "Grace"
         }
     }
 
     public var gender: Gender {
         switch self {
-        case .philBenson, .johnVanStan, .mikePelton, .tonyOliva:
+        case .james, .daniel, .michael, .ryan:
             return .male
-        default:
+        case .emma, .sophia, .claire, .olivia, .celine, .grace:
             return .female
         }
     }
 
-    public enum Gender { case male, female }
-}
+    public var description: String {
+        switch self {
+        case .emma:    return "Warm & clear"
+        case .james:   return "Confident & smooth"
+        case .daniel:  return "Deep & measured"
+        case .michael: return "Crisp & energetic"
+        case .ryan:    return "Natural & conversational"
+        case .sophia:  return "Bright & expressive"
+        case .claire:  return "Soft & articulate"
+        case .olivia:  return "Friendly & warm"
+        case .celine:  return "Rich & refined"
+        case .grace:   return "Calm & soothing"
+        }
+    }
 
+    public static var males: [FastPitchSpeaker] { allCases.filter { $0.gender == .male } }
+    public static var females: [FastPitchSpeaker] { allCases.filter { $0.gender == .female } }
+
+    public enum Gender {
+        case male, female
+        public var displayName: String {
+            switch self {
+            case .male:   return "Male"
+            case .female: return "Female"
+            }
+        }
+    }
+}
 // MARK: - Config
 
 public struct MultispeakerTTSConfig {
     /// Which voice to use.
-    public var speaker: FastPitchSpeaker = .coriSamuel
+    public var speaker: FastPitchSpeaker = .emma
 
-    public init(speaker: FastPitchSpeaker = .coriSamuel) {
+    public init(speaker: FastPitchSpeaker = .emma) {
         self.speaker = speaker
     }
 }
