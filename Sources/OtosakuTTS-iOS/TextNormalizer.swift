@@ -289,22 +289,33 @@ public struct TextNormalizer: Sendable {
         if value < 1_000 {
             let h   = value / 100;  let rem = value % 100
             let head = "\(smallNumberWord(h)) hundred"
-            return rem == 0 ? head : "\(head) \(speakInt(rem)!)"
+            if rem == 0 { return head }
+            guard let remainder = speakInt(rem) else { return head }
+            return "\(head) \(remainder)"
         }
         if value < 1_000_000 {
             let th  = value / 1_000; let rem = value % 1_000
-            let head = "\(speakInt(th)!) thousand"
-            return rem == 0 ? head : "\(head) \(speakInt(rem)!)"
+            guard let thousands = speakInt(th) else { return nil }
+            let head = "\(thousands) thousand"
+            if rem == 0 { return head }
+            guard let remainder = speakInt(rem) else { return head }
+            return "\(head) \(remainder)"
         }
         if value < 1_000_000_000 {
             let m   = value / 1_000_000; let rem = value % 1_000_000
-            let head = "\(speakInt(m)!) million"
-            return rem == 0 ? head : "\(head) \(speakInt(rem)!)"
+            guard let millions = speakInt(m) else { return nil }
+            let head = "\(millions) million"
+            if rem == 0 { return head }
+            guard let remainder = speakInt(rem) else { return head }
+            return "\(head) \(remainder)"
         }
         if value < 1_000_000_000_000 {
             let b   = value / 1_000_000_000; let rem = value % 1_000_000_000
-            let head = "\(speakInt(b)!) billion"
-            return rem == 0 ? head : "\(head) \(speakInt(rem)!)"
+            guard let billions = speakInt(b) else { return nil }
+            let head = "\(billions) billion"
+            if rem == 0 { return head }
+            guard let remainder = speakInt(rem) else { return head }
+            return "\(head) \(remainder)"
         }
         return nil
     }
@@ -322,8 +333,14 @@ public struct TextNormalizer: Sendable {
         // 2010–2099 and 1000–1999: "twenty twenty-four", "nineteen ninety-five"
         let century = year / 100
         let rem     = year % 100
-        if rem == 0 { return "\(speakInt(century)!) hundred" }
-        return "\(speakInt(century)!) \(speakInt(rem)!)"
+        guard let centuryWord = speakInt(century) else {
+            return speakWholeNumber(yearStr) ?? yearStr
+        }
+        if rem == 0 { return "\(centuryWord) hundred" }
+        guard let remainderWord = speakInt(rem) else {
+            return speakWholeNumber(yearStr) ?? yearStr
+        }
+        return "\(centuryWord) \(remainderWord)"
     }
 
     private func speakOrdinal(_ n: Int) -> String {

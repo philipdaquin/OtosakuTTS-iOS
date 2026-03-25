@@ -11,6 +11,7 @@ public enum OtosakuTTSError: LocalizedError {
     case specGenerationFailed
     case waveformGenerationFailed
     case audioBufferCreationFailed
+    case audioFormatCreationFailed
     case invalidTokensFile
     case invalidDictionaryFile
     case emptyInput
@@ -27,6 +28,8 @@ public enum OtosakuTTSError: LocalizedError {
             return "Failed to generate waveform from HiFiGAN"
         case .audioBufferCreationFailed:
             return "Failed to create audio buffer"
+        case .audioFormatCreationFailed:
+            return "Failed to create audio format"
         case .invalidTokensFile:
             return "Invalid or missing tokens file"
         case .invalidDictionaryFile:

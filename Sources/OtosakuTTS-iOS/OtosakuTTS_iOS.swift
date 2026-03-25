@@ -126,12 +126,15 @@ public class OtosakuTTS {
             throw OtosakuTTSError.tokenizerInitializationFailed(error.localizedDescription)
         }
         
-        audioFormat = AVAudioFormat(
+        guard let format = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 22_050,
             channels: 1,
             interleaved: false
-        )!
+        ) else {
+            throw OtosakuTTSError.audioFormatCreationFailed
+        }
+        audioFormat = format
 
         fastPitchInputFeatureNames = Set(fastPitch.modelDescription.inputDescriptionsByName.keys)
     }
@@ -178,7 +181,10 @@ public class OtosakuTTS {
         }
         
         buffer.frameLength = buffer.frameCapacity
-        buffer.floatChannelData!.pointee.update(from: &floats, count: length)
+        guard let channelData = buffer.floatChannelData else {
+            throw OtosakuTTSError.audioBufferCreationFailed
+        }
+        channelData.pointee.update(from: &floats, count: length)
         
         return buffer
     }
@@ -231,12 +237,14 @@ extension OtosakuTTS {
         var floats  = [Float](repeating: 0, count: length)
         for i in 0..<length { floats[i] = array[i].floatValue }
 
-        let format44k = AVAudioFormat(
+        guard let format44k = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
             sampleRate: 44_100,
             channels: 1,
             interleaved: false
-        )!
+        ) else {
+            throw OtosakuTTSError.audioFormatCreationFailed
+        }
 
         guard let buffer = AVAudioPCMBuffer(
             pcmFormat: format44k,
@@ -246,7 +254,10 @@ extension OtosakuTTS {
         }
 
         buffer.frameLength = buffer.frameCapacity
-        buffer.floatChannelData!.pointee.update(from: &floats, count: length)
+        guard let channelData = buffer.floatChannelData else {
+            throw OtosakuTTSError.audioBufferCreationFailed
+        }
+        channelData.pointee.update(from: &floats, count: length)
         return buffer
     }
 }

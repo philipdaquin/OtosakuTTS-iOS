@@ -16,6 +16,14 @@
 
 import Foundation
 
+// MARK: - Safe Subscript Extension
+
+private extension Collection {
+    subscript(safe index: Index) -> Element? {
+        indices.contains(index) ? self[index] : nil
+    }
+}
+
 // MARK: - Output
 
 public struct TokenizerOutput: Sendable {
@@ -129,16 +137,20 @@ public struct Tokenizer: Sendable {
             // Numeric token that TextNormalizer didn't catch (safety net)
             if token.first?.isNumber == true {
                 let spoken = normalizer.expandNumberToken(token)
-                let prev   = wordIndex > 0 ? lowerWords[wordIndex - 1] : nil
-                let next   = wordIndex < lowerWords.count ? lowerWords[wordIndex] : nil
+                let prev   = lowerWords[safe: wordIndex - 1]
+                let next   = lowerWords[safe: wordIndex + 1]
                 appendPhrase(spoken, prev: prev, next: next, to: &ids)
                 continue
             }
 
             // Word token
             if token.first?.isLetter == true {
-                let prev = wordIndex > 0 ? lowerWords[wordIndex - 1] : nil
-                let next = wordIndex + 1 < lowerWords.count ? lowerWords[wordIndex + 1] : nil
+                guard wordIndex < lowerWords.count else {
+                    appendSymbol(idOOV.map { String($0) } ?? "<oov>", to: &ids)
+                    continue
+                }
+                let prev = lowerWords[safe: wordIndex - 1]
+                let next = lowerWords[safe: wordIndex + 1]
                 let phones = phonemizer.phonemize(token, previousWord: prev, nextWord: next)
                 for phone in phones { appendSymbol(phone, to: &ids) }
                 wordIndex += 1
@@ -161,8 +173,8 @@ public struct Tokenizer: Sendable {
         let words = phrase.split(separator: " ").map(String.init)
         for (i, w) in words.enumerated() {
             if i > 0 { appendSymbol(" ", to: &arr) }
-            let p = i == 0 ? prev : words[i - 1]
-            let n = i + 1 < words.count ? words[i + 1] : next
+            let p = words[safe: i - 1] ?? prev
+            let n = words[safe: i + 1] ?? next
             for phone in phonemizer.phonemize(w, previousWord: p, nextWord: n) {
                 appendSymbol(phone, to: &arr)
             }
