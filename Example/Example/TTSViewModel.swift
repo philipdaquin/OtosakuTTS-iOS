@@ -13,7 +13,7 @@ class TTSViewModel: ObservableObject {
     @Published var isProcessing = false
     @Published var errorMessage: String?
     @Published var canSynthesize = false
-    @Published var selectedSpeaker: FastPitchSpeaker = .coriSamuel
+    @Published var selectedSpeaker: FastPitchSpeaker = .emma
     @Published var pace: Float = 1.0
 
     private var tts: OtosakuTTS?

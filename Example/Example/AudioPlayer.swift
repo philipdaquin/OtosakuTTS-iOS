@@ -17,16 +17,22 @@ final class AudioPlayer {
         }
     }
 
+#if os(iOS)
     private let audioSession = AVAudioSession.sharedInstance()
+#endif
     private let audioEngine = AVAudioEngine()
     private let playerNode = AVAudioPlayerNode()
+#if os(iOS)
     private var hasConfiguredAudioSession = false
+#endif
     private var currentConnectionFormat: AVAudioFormat?
 
     init() {
         setupAudioEngine()
         print("Intialising the audio manager")
+#if os(iOS)
         registerForAudioSessionNotifications()
+#endif
     }
 
     deinit {
@@ -103,6 +109,7 @@ final class AudioPlayer {
     }
 
     private func configureAudioSessionIfNeeded() throws {
+#if os(iOS)
         guard !hasConfiguredAudioSession else { return }
 
         do {
@@ -141,11 +148,14 @@ final class AudioPlayer {
         }
 
         hasConfiguredAudioSession = true
+#endif
     }
 
     private func ensureAudioSessionActive() throws {
+#if os(iOS)
         try audioSession.setActive(true, options: [])
         print("Audio session active. Route: \(audioSession.currentRoute)")
+#endif
     }
 
     private func ensureEngineRunning() throws {
@@ -165,6 +175,7 @@ final class AudioPlayer {
         }
     }
 
+#if os(iOS)
     private func registerForAudioSessionNotifications() {
         NotificationCenter.default.addObserver(
             self,
@@ -221,4 +232,5 @@ final class AudioPlayer {
             // Keep media service reset handling non-fatal.
         }
     }
+#endif
 }

@@ -8,3 +8,8 @@ DerivedData/
 .netrc
 .model-cache/
 TTSModels.zip
+.release/
+release.env
+.mac-release.env
+*.p8
+DeveloperIDApplication.p12.base64

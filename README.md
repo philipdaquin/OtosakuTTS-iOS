@@ -164,6 +164,74 @@ Typical generation times on modern iOS devices:
 
 Memory usage: ~200MB when models are loaded
 
+## Mac Release
+
+The Mac release path matches StorageScanner: build a signed app locally, then notarize and publish it to GitHub. Sparkle uses the same appcast.
+
+Fill in `release.env` from `release.env.example`. That file is gitignored. Put your Developer ID, notarization, and Sparkle values there. Do not commit it.
+
+```bash
+cp release.env.example release.env
+```
+
+`version.env` holds `MARKETING_VERSION` and `BUILD_NUMBER`. The example app's marketing version should stay in step with it.
+
+Before publishing, check that the tools and secrets are present. This prints names only, not secret values.
+
+```bash
+scripts/release-doctor.sh
+scripts/release-doctor.sh --github
+```
+
+Build locally without creating a GitHub Release:
+
+```bash
+scripts/release.sh local
+```
+
+`local` builds the Example scheme for macOS, signs `Example.app`, writes the DMG and Sparkle ZIP, and generates `appcast.xml` under `.release/`.
+
+Publish a new GitHub Release, notarize the DMG, upload the DMG and ZIP, and refresh the appcast:
+
+```bash
+scripts/release.sh publish
+```
+
+`upload` does the same build, sign, and notarize work, then uploads those assets to an existing GitHub Release for the current version tag.
+
+Release notes are drafted from commit subjects with `scripts/release-notes.sh`. The draft is written into the release workspace so you can edit it before publishing. `gh release create` uses that file as the GitHub Release body.
+
+`CHANGELOG.md` is the user-facing history. The Sparkle appcast points at the downloadable update and links back to the GitHub Release notes.
+
+### GitHub Actions
+
+The workflow is `.github/workflows/release.yml`.
+
+It runs when a GitHub Release is published, and it can also be started by hand with `publish` or `upload`. A published release uses `upload`, so the workflow attaches the built assets to the release you just created.
+
+GitHub secrets:
+
+- `DEVELOPER_ID_IDENTITY`
+- `DEVELOPER_ID_CERTIFICATE_P12_BASE64`
+- `DEVELOPER_ID_CERTIFICATE_PASSWORD`
+- `NOTARYTOOL_PROFILE` or `NOTARYTOOL_API_KEY_P8`, `NOTARYTOOL_API_KEY_ID`, `NOTARYTOOL_API_ISSUER_ID`
+- `SPARKLE_PRIVATE_KEY` or the legacy `SPARKLE_PRIVATE_KEY_FILE` secret containing the private key text
+- `SPARKLE_PUBLIC_ED_KEY`
+
+Export the Developer ID Application certificate from Keychain Access as a password-protected `.p12`, then store it:
+
+```bash
+base64 -i /path/to/DeveloperIDApplication.p12 | pbcopy
+gh secret set DEVELOPER_ID_CERTIFICATE_P12_BASE64 --repo philipdaquin/OtosakuTTS-iOS
+gh secret set DEVELOPER_ID_CERTIFICATE_PASSWORD --repo philipdaquin/OtosakuTTS-iOS
+```
+
+Paste the base64 output for `DEVELOPER_ID_CERTIFICATE_P12_BASE64`, and paste the `.p12` export password for `DEVELOPER_ID_CERTIFICATE_PASSWORD`.
+
+After a successful publish or upload, the workflow uploads the DMG and ZIP, then commits the updated `appcast.xml` back to the default branch.
+
+The shipped app is the Example target, built with `-sdk macosx`. Sparkle is linked only for macOS. Update checks stay off until `release.env` supplies `APPCAST_URL` and `SPARKLE_PUBLIC_ED_KEY`; the release build writes those into the app.
+
 ## License
 
 This project is available under the MIT license. See the LICENSE file for more info.
