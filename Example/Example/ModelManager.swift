@@ -9,7 +9,7 @@ import ZIPFoundation
 class ModelManager: ObservableObject {
     static let shared = ModelManager()
     
-    private let modelURL = "https://firebasestorage.googleapis.com/v0/b/my-project-1494707780868.firebasestorage.app/o/fastpitch_hifigan.zip?alt=media&token=d239c2de-fe93-460e-a1e4-044923a1be58"
+    private let modelURL = "https://firebasestorage.googleapis.com/v0/b/ocre-82770.firebasestorage.app/o/TTSModels.zip?alt=media&token=f9d7c1ca-b38d-48c7-84e3-34be0c5a65a5"
     private let documentsDirectory = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
     private let fileManager = FileManager.default
 
@@ -22,7 +22,7 @@ class ModelManager: ObservableObject {
     }
     
     private var zipFileURL: URL {
-        documentsDirectory.appendingPathComponent("fastpitch_hifigan.zip")
+        documentsDirectory.appendingPathComponent("TTSModels.zip")
     }
 
     private var bundledModelsDirectory: URL? {
@@ -109,10 +109,10 @@ class ModelManager: ObservableObject {
         let macosxFolder = downloadedModelsDirectory.appendingPathComponent("__MACOSX")
         try? fileManager.removeItem(at: macosxFolder)
         
-        // Find the fastpitch_hifigan folder and move its contents to the root
-        let fastpitchFolder = downloadedModelsDirectory.appendingPathComponent("fastpitch_hifigan")
-        if fileManager.fileExists(atPath: fastpitchFolder.path) {
-            let contents = try fileManager.contentsOfDirectory(at: fastpitchFolder, includingPropertiesForKeys: nil)
+        // The archive nests models under TTSModels/. Move them up to the download root.
+        let nestedModelsFolder = downloadedModelsDirectory.appendingPathComponent("TTSModels")
+        if fileManager.fileExists(atPath: nestedModelsFolder.path) {
+            let contents = try fileManager.contentsOfDirectory(at: nestedModelsFolder, includingPropertiesForKeys: nil)
             
             for item in contents {
                 let destinationURL = downloadedModelsDirectory.appendingPathComponent(item.lastPathComponent)
@@ -120,7 +120,7 @@ class ModelManager: ObservableObject {
                 try fileManager.moveItem(at: item, to: destinationURL)
             }
             
-            try? fileManager.removeItem(at: fastpitchFolder)
+            try? fileManager.removeItem(at: nestedModelsFolder)
         }
     }
     
