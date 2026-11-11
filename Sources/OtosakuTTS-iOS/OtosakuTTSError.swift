@@ -15,6 +15,7 @@ public enum OtosakuTTSError: LocalizedError {
     case invalidTokensFile
     case invalidDictionaryFile
     case emptyInput
+    case inputTooLong(tokens: Int, max: Int)
     
     public var errorDescription: String? {
         switch self {
@@ -36,6 +37,8 @@ public enum OtosakuTTSError: LocalizedError {
             return "Invalid or missing dictionary file"
         case .emptyInput:
             return "Input text is empty"
+        case .inputTooLong(let tokens, let max):
+            return "Input is \(tokens) tokens; the model accepts at most \(max). Shorten the text."
         }
     }
 }
