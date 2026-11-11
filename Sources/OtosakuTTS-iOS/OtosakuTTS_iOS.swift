@@ -78,9 +78,12 @@ public enum FastPitchSpeaker: Int, CaseIterable, Identifiable {
 public struct MultispeakerTTSConfig {
     /// Which voice to use.
     public var speaker: FastPitchSpeaker = .emma
+    /// Silence in seconds after a piece cut at punctuation, when the text is over the model's input limit.
+    public var splitPause: TimeInterval = 0.15
 
-    public init(speaker: FastPitchSpeaker = .emma) {
+    public init(speaker: FastPitchSpeaker = .emma, splitPause: TimeInterval = 0.15) {
         self.speaker = speaker
+        self.splitPause = splitPause
     }
 }
 
@@ -193,18 +196,43 @@ public class OtosakuTTS {
 
 extension OtosakuTTS {
 
+    /// Core ML takes 2...240 tokens per prediction. Text over that is split (after the last
+    /// punctuation that fits, else at a word) and the pieces are joined into one buffer.
+    public static let maxInputTokens = InputSplitter.maxTokens
+
+    /// Token count the model would see for `text`.
+    public func tokenCount(for text: String) -> Int {
+        tokenizer.encode(text).count
+    }
+
     /// Generate speech with explicit speaker selection.
+    /// - Throws: `OtosakuTTSError.inputTooLong` when one word alone is over `maxInputTokens`.
     public func generate(text: String, config: MultispeakerTTSConfig) throws -> AVAudioPCMBuffer {
         guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw OtosakuTTSError.emptyInput
         }
 
-        let phoneIds = tokenizer.encode(text)
-        let phones   = try makeMultiArray(from: phoneIds)
+        let pieces = InputSplitter.pieces(for: text, countTokens: { tokenizer.encode($0).count })
+        var samples: [Float] = []
+        for (index, piece) in pieces.enumerated() {
+            let phoneIds = tokenizer.encode(piece.text)
+            guard phoneIds.count <= InputSplitter.maxTokens else {
+                throw OtosakuTTSError.inputTooLong(tokens: phoneIds.count, max: InputSplitter.maxTokens)
+            }
+            samples += try predictSamples(phoneIds: phoneIds, speaker: config.speaker)
+            if index < pieces.count - 1, piece.endsOnPunctuation, config.splitPause > 0 {
+                samples += [Float](repeating: 0, count: Int(config.splitPause * 44_100))
+            }
+        }
+        return try createAudioBuffer44k(from: samples)
+    }
+
+    private func predictSamples(phoneIds: [Int], speaker: FastPitchSpeaker) throws -> [Float] {
+        let phones = try makeMultiArray(from: phoneIds)
 
         // Speaker ID input — shape [1], int32
         let speakerArray = try MLMultiArray(shape: [1], dataType: .int32)
-        speakerArray[0]  = NSNumber(value: Int32(config.speaker.rawValue))
+        speakerArray[0]  = NSNumber(value: Int32(speaker.rawValue))
 
         let fastPitchInput = try MLDictionaryFeatureProvider(dictionary: [
             "x":       phones,
@@ -223,7 +251,9 @@ extension OtosakuTTS {
             throw OtosakuTTSError.waveformGenerationFailed
         }
 
-        return try createAudioBuffer44k(from: waveform)
+        var floats = [Float](repeating: 0, count: waveform.count)
+        for i in 0..<waveform.count { floats[i] = waveform[i].floatValue }
+        return floats
     }
 
     /// Convenience — generate with just a speaker.
@@ -232,10 +262,9 @@ extension OtosakuTTS {
     }
 
     // 44100 Hz buffer for the multispeaker models
-    private func createAudioBuffer44k(from array: MLMultiArray) throws -> AVAudioPCMBuffer {
-        let length = array.count
-        var floats  = [Float](repeating: 0, count: length)
-        for i in 0..<length { floats[i] = array[i].floatValue }
+    private func createAudioBuffer44k(from samples: [Float]) throws -> AVAudioPCMBuffer {
+        let length = samples.count
+        var floats = samples
 
         guard let format44k = AVAudioFormat(
             commonFormat: .pcmFormatFloat32,
